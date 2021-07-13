@@ -2,7 +2,25 @@ const Blockchain = require('./blockchain')
 
 const cryptoCurrency = new Blockchain();
 
-cryptoCurrency.createNewBlock(78947, 'SSFJ394DI3', 'R843JFKF4T');
-cryptoCurrency.createNewTransaction(100, 'FI4JF3KFO93K', 'TTU48FK404FT')
+const previousBlockHash = '87765DA6CCF0668238C1D27C35692E11';
+const currentBlockData = [
+    {
+        amount: 10,
+        sender: 'B4CEE9C05CD571',
+        recipient: '3A3F6E42D48E9',
+    },
+    {
+        amount: 10,
+        sender: 'B4CEE9C05CD571',
+        recipient: '3A3F6E42D48E9',
+    },
+    {
+        amount: 10,
+        sender: 'B4CEE9C05CD571',
+        recipient: '3A3F6E42D48E9',
+    },
+];
+const nonce = 100;
+const hash = cryptoCurrency.hashBlock(previousBlockHash, currentBlockData, nonce);
 
-console.log(cryptoCurrency);
+console.log(hash);
