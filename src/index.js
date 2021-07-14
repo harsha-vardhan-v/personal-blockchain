@@ -1,9 +1,15 @@
 const express = require('express');
 const uuid = require('uuid');
 const Blockchain = require('./blockchain');
+const rp = require('request-promise')
 
 const app = express();
 const cryptoCurrency = new Blockchain();
+const nodeAddress = uuid.v1()
+    .split('-')
+    .join('');
+
+const port = process.argv[2];
 
 app.use(express.json());
 
@@ -56,9 +62,6 @@ app.get('/mine', (req, res) => {
             currentBlockHash
         );
 
-    const nodeAddress = uuid.v1()
-        .split('-')
-        .join('');
     cryptoCurrency.createNewTransaction(10.5, '00', nodeAddress);
 
     res.json({
@@ -67,6 +70,75 @@ app.get('/mine', (req, res) => {
     });
 });
 
-app.listen(5000, () => {
-    console.log('Listening on port 5000');
+app.post('/register-and-broadcast-node', async (req, res) => {
+    const newNodeUrl = req.body.newNodeUrl;
+
+    if (cryptoCurrency.networkNodes.indexOf(newNodeUrl) === -1) {
+        cryptoCurrency.networkNodes.push(newNodeUrl);
+    }
+
+    const regNodesPromises = [];
+    
+    //Register newNode with other nodes
+    cryptoCurrency.networkNodes.forEach(networkNodeUrl => {
+        const requestOptions = {
+            uri: networkNodeUrl + '/register-node',
+            method: 'POST',
+            body: {
+                newNodeUrl: newNodeUrl,
+            },
+            json: true,
+        };
+
+        regNodesPromises.push(rp(requestOptions));
+    });
+
+    await Promise.all(regNodesPromises);
+
+    const bulkRegisterOptions = {
+        uri: newNodeUrl + '/register-nodes-bulk',
+        method: 'POST',
+        body: {
+            allNetworkNodes: [
+                ...cryptoCurrency.networkNodes,
+                cryptoCurrency.currentNodeUrl
+            ],
+        },
+        json: true,
+    }
+
+    await rp(bulkRegisterOptions);
+    res.json({ note: 'New Node registered with network successfully' });
+});
+
+app.post('/register-node', (req, res) => {
+    const newNodeUrl = req.body.newNodeUrl;
+
+    const nodeNotAlreadyPresent = cryptoCurrency.networkNodes.indexOf(newNodeUrl) === -1;
+    const notCurrentNode = cryptoCurrency.currentNodeUrl !== newNodeUrl;
+
+    if (nodeNotAlreadyPresent && notCurrentNode) {
+        cryptoCurrency.networkNodes.push(newNodeUrl);
+    }
+
+    res.json({ note: 'New node registered successfully' });
+});
+
+app.post('/register-nodes-bulk', (req, res) => {
+    const allNetworkNodes = req.body.allNetworkNodes;
+
+    allNetworkNodes.forEach(networkNodeUrl => {
+        const nodeNotAlreadyPresent = cryptoCurrency.networkNodes.indexOf(networkNodeUrl) === -1;
+        const notCurrentNode = cryptoCurrency.currentNodeUrl !== networkNodeUrl;
+
+        if (nodeNotAlreadyPresent && notCurrentNode) {
+            cryptoCurrency.networkNodes.push(networkNodeUrl);
+        }
+    });
+
+    res.json({ note: 'Bulk registration successful' });
+});
+
+app.listen(port, () => {
+    console.log(`Listening on port ${port}`);
 });
