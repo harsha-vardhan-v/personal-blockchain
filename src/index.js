@@ -22,19 +22,45 @@ app.get('/blockchain', (req, res) => {
 });
 
 app.post('/transaction', (req, res) => {
+    const newTransaction = req.body;
+
     const blockIndex = cryptoCurrency
+        .addTransactionToPendingTransactions(newTransaction);
+
+    res.json({
+        note: `Transaction will be added in block ${blockIndex}`,
+    })
+});
+
+app.post('/transaction/broadcast', async (req, res) => {
+    const newTransaction = cryptoCurrency
         .createNewTransaction(
             req.body.amount,
             req.body.sender,
-            req.body.recipient
+            req.body.recipient,
         );
 
+    const requestPromises = [];
+    
+    cryptoCurrency.addTransactionToPendingTransactions(newTransaction);
+    cryptoCurrency.networkNodes.forEach(async (networkNodeUrl) => {
+        const requestOptions = {
+            uri: networkNodeUrl + '/transaction',
+            method: 'POST',
+            body: newTransaction,
+            json: true,
+        };
+
+        requestPromises.push(rp(requestOptions))
+    });
+
+    await Promise.all(requestPromises)
     res.json({
-        note: `Transaction will be added in block ${blockIndex}`
+        note: 'Transaction created and broadcast successfully'
     });
 });
 
-app.get('/mine', (req, res) => {
+app.get('/mine', async (req, res) => {
     const lastBlock = cryptoCurrency.getLastBlock();
     const previousBlockHash = lastBlock.hash;
 
@@ -62,12 +88,61 @@ app.get('/mine', (req, res) => {
             currentBlockHash
         );
 
-    cryptoCurrency.createNewTransaction(10.5, '00', nodeAddress);
+    const requestPromises = [];
 
+    cryptoCurrency.networkNodes.forEach(networkNodeUrl => {
+        const requestOptions = {
+            uri: networkNodeUrl + '/receive-new-block',
+            method: 'POST',
+            body: { newBlock },
+            json: true,
+        };
+
+        requestPromises.push(rp(requestOptions));
+    });
+
+    await Promise.all(requestPromises);
+    
+    const requestOptions = {
+        uri: cryptoCurrency.currentNodeUrl + '/transaction/broadcast',
+        method: 'POST',
+        body: {
+            amount: 10.5,
+            sender: '00',
+            recipient: nodeAddress,
+        },
+        json: true,
+    }
+
+    await rp(requestOptions);
+    
     res.json({
         note: 'New block mined successfully',
         block: newBlock,
     });
+});
+
+app.post('/receive-new-block', (req, res) => {
+    const newBlock = req.body.newBlock;
+    const lastBlock = cryptoCurrency.getLastBlock();
+
+    const correctHash = lastBlock.hash === newBlock.previousBlockHash;
+    const correctIndex = lastBlock.index + 1 === newBlock.index;
+
+    if (correctHash && correctIndex) {
+        cryptoCurrency.chain.push(newBlock);
+        cryptoCurrency.pendingTransactions = [];
+
+        res.json({
+            note: 'New block received and accepted',
+            newBlock
+        });
+    } else {
+        res.json({
+            note: 'New block rejected',
+            newBlock
+        });
+    }
 });
 
 app.post('/register-and-broadcast-node', async (req, res) => {
@@ -84,9 +159,7 @@ app.post('/register-and-broadcast-node', async (req, res) => {
         const requestOptions = {
             uri: networkNodeUrl + '/register-node',
             method: 'POST',
-            body: {
-                newNodeUrl: newNodeUrl,
-            },
+            body: { newNodeUrl },
             json: true,
         };
 

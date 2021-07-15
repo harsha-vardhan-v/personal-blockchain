@@ -1,4 +1,5 @@
 const sha256 = require('sha256');
+const uuid = require('uuid');
 const currentNodeUrl = process.argv[3];
 
 function Blockchain () {
@@ -8,7 +9,7 @@ function Blockchain () {
     this.networkNodes = [];
 
     this.createNewBlock(100, '0', '0');
-}
+};
 
 Blockchain.prototype.createNewBlock = function (nonce, previousBlockHash, hash) {
     const newBlock = {
@@ -24,27 +25,32 @@ Blockchain.prototype.createNewBlock = function (nonce, previousBlockHash, hash) 
     this.chain.push(newBlock);
 
     return newBlock
-}
+};
 
 Blockchain.prototype.getLastBlock = function () {
     return this.chain[this.chain.length - 1];
-}
+};
 
 Blockchain.prototype.createNewTransaction = function (amount, sender, recipient) {
     const newTransaction = {
-        amount, sender, recipient
+        amount, sender, recipient,
+        transactionId: uuid.v1().split('-').join(''),
     };
 
-    this.pendingTransactions.push(newTransaction);
+    return newTransaction;
+};
+
+Blockchain.prototype.addTransactionToPendingTransactions = function (transactionObj) {
+    this.pendingTransactions.push(transactionObj);
     return this.getLastBlock().index + 1;
-}
+};
 
 Blockchain.prototype.hashBlock = function (previousBlockHash, currentBlockData, nonce) {
     const dataAsString = previousBlockHash + nonce.toString() + JSON.stringify(currentBlockData);
     const hash = sha256(dataAsString);
 
     return hash;
-}
+};
 
 Blockchain.prototype.proofOfWork = function (previousBlockHash, currentBlockData) {
     let nonce = 0;
@@ -56,6 +62,6 @@ Blockchain.prototype.proofOfWork = function (previousBlockHash, currentBlockData
     }
 
     return nonce;
-}
+};
 
 module.exports = Blockchain;
