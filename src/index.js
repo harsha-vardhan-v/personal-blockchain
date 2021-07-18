@@ -254,6 +254,21 @@ app.post('/register-nodes-bulk', (req, res) => {
     res.json({ note: 'Bulk registration successful' });
 });
 
+app.get('/block/:blockHash', (req, res) => {
+    const blockHash = req.params.blockHash;
+    const block = cryptoCurrency.getBlock(blockHash);
+
+    res.json({ block });
+});
+
+app.get('/transaction/:transactionId', (req, res) => {
+
+});
+
+app.get('/address/:address', (req, res) => {
+
+});
+
 app.listen(port, () => {
     console.log(`Listening on port ${port}`);
 });
