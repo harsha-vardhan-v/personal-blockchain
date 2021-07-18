@@ -122,6 +122,48 @@ app.get('/mine', async (req, res) => {
     });
 });
 
+app.get('/consensus', async (req, res) => {
+    const requestPromises = [];
+    cryptoCurrency.networkNodes.forEach(networkNodeUrl => {
+        const requestOptions = {
+            uri: networkNodeUrl + '/blockchain',
+            method: 'GET',
+            json: true,
+        };
+        requestPromises.push(rp(requestOptions));
+    });
+
+    const blockchains = await Promise.all(requestPromises);
+    
+    const currentChainLength = cryptoCurrency.chain.length;
+    let maxChainLength = currentChainLength;
+    let newLongestChain = null;
+    let newPendingTransactions = null;
+    
+    blockchains.forEach(blockchain => {
+        if (blockchain.chain.length > maxChainLength) {
+            maxChainLength = blockchain.chain.length;
+            newLongestChain = blockchain.chain;
+            newPendingTransactions = blockchain.pendingTransactions;
+        }
+    });
+
+    if (!newLongestChain || (newLongestChain && !cryptoCurrency.chainIsValid(newLongestChain))) {
+        res.json({
+            note: 'Current chain has not been replaced',
+            chain: cryptoCurrency.chain,
+        });
+    } else {
+        cryptoCurrency.chain = newLongestChain;
+        cryptoCurrency.pendingTransactions = newPendingTransactions;
+
+        res.json({
+            note: 'This chain has been replaced',
+            chain: cryptoCurrency.chain,
+        });
+    }
+});
+
 app.post('/receive-new-block', (req, res) => {
     const newBlock = req.body.newBlock;
     const lastBlock = cryptoCurrency.getLastBlock();
