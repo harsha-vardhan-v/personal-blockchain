@@ -262,12 +262,25 @@ app.get('/block/:blockHash', (req, res) => {
 });
 
 app.get('/transaction/:transactionId', (req, res) => {
+    const transactionId = req.params.transactionId;
+    const transactionData = cryptoCurrency.getTransaction(transactionId);
 
+    res.json(transactionData)
 });
 
 app.get('/address/:address', (req, res) => {
+    const address = req.params.address;
+    const addressData = cryptoCurrency.getAddressData(address);
 
+    res.json({
+        addressData   
+    });
 });
+
+app.get('/block-explorer', (req, res) => {
+    res.sendFile('./block-explorer/index.html', { root: __dirname });
+    
+})
 
 app.listen(port, () => {
     console.log(`Listening on port ${port}`);
